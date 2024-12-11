@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key-Value 转 JSON 工具</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='70' font-family='Arial' font-weight='bold' fill='%237F3FFF'>H&Z</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            /* 日间模式变量 */
+            --primary-color: #7F3FFF;
+            --primary-hover: #6E35DB;
+            --success-color: #00BD7E;
+            --success-hover: #00A36C;
+            --neutral-color: #64748B;
+            --neutral-hover: #475569;
+            --error-color: #FF4444;
+            --background-color: #F8FAFC;
+            --card-background: #FFFFFF;
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --border-color: #E2E8F0;
+            --pre-background: #1E1E1E;
+            --input-background: #FAFAFA;
+            --shadow-color: rgba(0, 0, 0, 0.05);
+            --highlight-color: rgba(127, 63, 255, 0.1);
+        }
+
+        :root[data-theme="dark"] {
+            /* 夜间模式变量 */
+            --primary-color: #9D6FFF;
+            --primary-hover: #8A5FEB;
+            --success-color: #10B981;
+            --success-hover: #059669;
+            --neutral-color: #9CA3AF;
+            --neutral-hover: #6B7280;
+            --error-color: #EF4444;
+            --background-color: #0F172A;
+            --card-background: #1E293B;
+            --text-primary: #F8FAFC;
+            --text-secondary: #CBD5E1;
+            --border-color: #334155;
+            --pre-background: #0F172A;
+            --input-background: #1E293B;
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --highlight-color: rgba(157, 111, 255, 0.2);
+            --tool-switcher-bg: #1E293B;
+            --config-bg: #1E293B;
+            --button-text: #F8FAFC;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--background-color);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: background-color 0.3s ease;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--card-background);
+            border-radius: 24px;
+            box-shadow: 0px 4px 20px var(--shadow-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            letter-spacing: -0.025em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .tool-switcher {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            padding: 0.5rem;
+            background: #F8FAFC;
+            border-radius: 16px;
+        }
+
+        .tool-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .tool-btn:hover {
+            background: var(--highlight-color);
+            color: var(--primary-color);
+        }
+
+        .tool-btn.active {
+            background: var(--primary-color);
+            color: var(--card-background);
+        }
+
+        .input-group, .output-group {
+            margin-bottom: 2rem;
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tool-content:not(.active) .input-group,
+        .tool-content:not(.active) .output-group {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 1.25rem;
+            background: var(--input-background);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(127, 63, 255, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .convert-btn {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .convert-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .example-btn {
+            background: #F1F5F9;
+            color: var(--text-secondary);
+        }
+
+        .example-btn:hover {
+            background: #E2E8F0;
+            transform: translateY(-2px);
+        }
+
+        .copy-btn {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .copy-btn:hover {
+            background: var(--success-hover);
+            transform: translateY(-2px);
+        }
+
+        pre {
+            background: var(--pre-background);
+            border-radius: 16px;
+            padding: 1.5rem;
+            color: var(--text-primary);
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .config-options {
+            margin: 1.5rem 0;
+            padding: 1.25rem;
+            background: #F8FAFC;
+            border-radius: 16px;
+            border: 2px solid #EAEAEA;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 6px;
+            border: 2px solid #EAEAEA;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .qrcode-preview {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: var(--input-background);
+            border-radius: 16px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            min-height: 300px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .qrcode-preview img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 二维码加载动画 */
+        .qrcode-preview.loading::before {
+            content: '';
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: qr-spin 1s linear infinite;
+        }
+
+        .qrcode-preview.loaded img {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        @keyframes qr-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes qr-fade-in {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1.5rem;
+                border-radius: 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tool-switcher {
+                flex-direction: column;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(10px);
+                background: var(--highlight-color);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0);
+                background: transparent;
+            }
+        }
+
+        .tool-content {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .highlight {
+            animation: highlight 1s ease-out;
+        }
+
+        @keyframes highlight {
+            0% { background: var(--highlight-color); }
+            100% { background: transparent; }
+        }
+
+        .content-wrapper {
+            position: relative;
+        }
+
+        .tool-content {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tool-content.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* 添加过渡效果 */
+        body, .container, button, textarea, pre, .tool-btn, .config-options {
+            transition: all 0.3s ease;
+        }
+
+        /* 夜间模式样式 */
+        body.dark-mode {
+            background: var(--dark-background);
+        }
+
+        .dark-mode .container {
+            background: var(--dark-card-background);
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .dark-mode h1 {
+            color: var(--dark-primary-color);
+        }
+
+        .dark-mode .subtitle,
+        .dark-mode label {
+            color: var(--dark-text-secondary);
+        }
+
+        .dark-mode textarea {
+            background: var(--dark-card-background);
+            border-color: var(--dark-border-color);
+            color: var(--dark-text-primary);
+        }
+
+        .dark-mode .tool-btn {
+            color: var(--dark-text-secondary);
+        }
+
+        .dark-mode .tool-btn:hover {
+            background: rgba(157, 111, 255, 0.2);
+        }
+
+        .dark-mode .tool-btn.active {
+            background: var(--dark-primary-color);
+        }
+
+        .dark-mode .config-options {
+            background: var(--dark-card-background);
+            border-color: var(--dark-border-color);
+        }
+
+        /* 主题切换按钮样式 */
+        .theme-switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 30px;
+            background: var(--border-color);
+            border-radius: 15px;
+            cursor: pointer;
+            padding: 3px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .theme-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: var(--card-background);
+            border-radius: 50%;
+            left: 3px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        :root[data-theme="dark"] .theme-switch::after {
+            transform: translateX(30px);
+        }
+
+        /* 深色模式下的元素样式 */
+        :root[data-theme="dark"] {
+            /* 工具切换器 */
+            .tool-switcher {
+                background: var(--tool-switcher-bg);
+                border: 1px solid var(--border-color);
+            }
+
+            /* 输入框和文本域 */
+            textarea {
+                background: var(--input-background);
+                border-color: var(--border-color);
+                color: var(--text-primary);
+            }
+
+            textarea::placeholder {
+                color: var(--text-secondary);
+            }
+
+            /* 按钮样式 */
+            .example-btn {
+                background: var(--card-background);
+                color: var(--text-secondary);
+                border: 1px solid var(--border-color);
+            }
+
+            .example-btn:hover {
+                background: var(--highlight-color);
+                color: var(--primary-color);
+            }
+
+            .convert-btn {
+                background: var(--primary-color);
+                color: var(--button-text);
+            }
+
+            .convert-btn:hover {
+                background: var(--primary-hover);
+            }
+
+            /* 配置选项区域 */
+            .config-options {
+                background: var(--config-bg);
+                border-color: var(--border-color);
+            }
+
+            .checkbox-label {
+                color: var(--text-secondary);
+            }
+
+            .checkbox-label input[type="checkbox"] {
+                border-color: var(--border-color);
+                background: var(--input-background);
+            }
+
+            /* 输出区域 */
+            pre {
+                background: var(--pre-background);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+            }
+
+            /* 二维码预览区 */
+            .qrcode-preview {
+                background: var(--input-background);
+                border-color: var(--border-color);
+            }
+
+            /* 错误消息 */
+            .error {
+                background: rgba(239, 68, 68, 0.1);
+                color: #FCA5A5;
+                border-color: rgba(239, 68, 68, 0.2);
+            }
+
+            /* 滚动条 */
+            ::-webkit-scrollbar-track {
+                background: var(--input-background);
+            }
+
+            ::-webkit-scrollbar-thumb {
+                background: var(--border-color);
+            }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: var(--text-secondary);
+            }
+
+            /* 选中文本 */
+            ::selection {
+                background: var(--highlight-color);
+                color: var(--primary-color);
+            }
+
+            /* 语言选择器 */
+            .language-selector {
+                background: var(--input-background);
+                border-color: var(--border-color);
+            }
+
+            .language-selector select {
+                background: var(--input-background);
+                color: var(--text-primary);
+            }
+
+            /* 按钮禁用状态 */
+            button:disabled {
+                background: var(--neutral-color);
+                opacity: 0.5;
+            }
+        }
+
+        /* 主题切换过渡动画 */
+        .theme-transitioning * {
+            transition: background-color 0.3s ease,
+                        color 0.3s ease,
+                        border-color 0.3s ease,
+                        box-shadow 0.3s ease !important;
+        }
+
+        /* 语言选择器样式 */
+        .language-selector {
+            position: fixed;
+            top: 20px;
+            right: 90px;
+            background: var(--card-background);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .language-selector::before {
+            content: '🌐';
+            font-size: 16px;
+        }
+
+        .language-selector:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(127, 63, 255, 0.1);
+        }
+
+        /* 深色模式适配 */
+        :root[data-theme="dark"] .language-selector {
+            background: var(--input-background);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        :root[data-theme="dark"] .language-selector:hover {
+            box-shadow: 0 4px 12px rgba(127, 63, 255, 0.2);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 640px) {
+            .language-selector {
+                top: 60px;
+                right: 20px;
+            }
+        }
+
+        /* 在 style 标签中添加/更新二维码相关样式 */
+    </style>
+</head>
+<body>
+    <div class="theme-switch" onclick="toggleTheme()"></div>
+    <div class="container">
+        <div class="header">
+            <div class="tool-switcher">
+                <button class="tool-btn active" onclick="switchTool('kv2json')" id="kv2jsonBtn">Key-Value 转 JSON</button>
+                <button class="tool-btn" onclick="switchTool('formatJson')" id="formatJsonBtn">JSON 格式化</button>
+                <button class="tool-btn" onclick="switchTool('qrcode')" id="qrcodeBtn">二维码生成</button>
+            </div>
+            <h1 id="title">Key-Value 转 JSON 工具</h1>
+            <p class="subtitle" id="subtitle">简单高效的键值对转换工具，支持多种格式</p>
+        </div>
+
+        <div class="content-wrapper">
+            <!-- Key-Value 转 JSON 内容 -->
+            <div class="tool-content kv2json-content active" id="kv2jsonContent">
+                <div class="input-group">
+                    <label for="keyValueInput" id="inputLabel">输入 (键值对):</label>
+                    <textarea id="keyValueInput" placeholder="示例: key1=value1, key2=value2" spellcheck="false"></textarea>
+                    <div class="config-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="keepJsonAsString">
+                            <span id="keepJsonAsStringLabel">将 JSON 值保持为字符串格式</span>
+                        </label>
+                    </div>
+                    <div class="error" id="errorMessage"></div>
+                </div>
+
+                <div class="toolbar">
+                    <button class="convert-btn" onclick="convertToJSON()" id="convertBtn">
+                        转换为 JSON
+                    </button>
+                    <button class="example-btn" onclick="loadExample()" id="exampleBtn">
+                        加载示例
+                    </button>
+                    <button class="copy-btn" onclick="copyToClipboard()" id="copyBtn">
+                        复制 JSON
+                    </button>
+                </div>
+
+                <div class="output-group">
+                    <label id="outputLabel">输出 (JSON):</label>
+                    <pre id="jsonOutput"></pre>
+                </div>
+            </div>
+
+            <!-- JSON 格式化内容 -->
+            <div class="tool-content format-json-content" id="formatJsonContent">
+                <div class="input-group">
+                    <label for="jsonInput">输入 JSON:</label>
+                    <textarea id="jsonInput" placeholder="请输入需要格式化的 JSON" spellcheck="false"></textarea>
+                </div>
+                
+                <div class="toolbar">
+                    <button class="convert-btn" onclick="formatJSON()" id="formatBtn">
+                        格式化
+                    </button>
+                </div>
+
+                <div class="output-group">
+                    <label>格式化结果:</label>
+                    <pre id="formatOutput"></pre>
+                </div>
+            </div>
+
+            <!-- 二维码生成内容 -->
+            <div class="tool-content qrcode-content" id="qrcodeContent">
+                <div class="input-group">
+                    <label for="qrcodeInput">输入文本内容:</label>
+                    <textarea id="qrcodeInput" placeholder="请输入需要生成二维码的内容" spellcheck="false"></textarea>
+                </div>
+                
+                <div class="toolbar">
+                    <button class="convert-btn" onclick="generateQRCode()" id="generateQRBtn">
+                        生成二维码
+                    </button>
+                    <button class="download-btn" onclick="downloadQRCode()" id="downloadQRBtn" disabled>
+                        下载二维码
+                    </button>
+                </div>
+
+                <div class="qrcode-preview">
+                    <div id="qrcodeCanvas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 语言配置
+        const i18n = {
+            zh: {
+                title: 'Key-Value 转 JSON 工具',
+                inputLabel: '输入 (键值对):',
+                outputLabel: '输出 (JSON):',
+                convertBtn: '转换为 JSON',
+                exampleBtn: '加载示例',
+                copyBtn: '复制 JSON',
+                placeholder: '示例: key1=value1, key2=value2',
+                emptyInput: '请输入键值对',
+                invalidPair: '无效的键值对格式',
+                emptyKey: '键不能为空',
+                copySuccess: 'JSON已复制到剪贴板！',
+                copyError: '复制失败: ',
+                error: '错误: ',
+                keepJsonAsString: '将 JSON 值保持为字符串格式',
+                invalidInput: '无效的输入格式',
+                unmatchedBrackets: '括号不匹配',
+                parseError: '解析错误',
+                clipboardError: '剪贴板操作失败',
+                formatError: '格式化失败',
+                formatJsonTitle: 'JSON 格式化工',
+                formatJsonSubtitle: '简单高效的 JSON 格式化工具',
+                kv2jsonBtn: 'Key-Value 转 JSON',
+                formatJsonBtn: 'JSON 格式化',
+                formatBtn: '格式化',
+                qrcodeEmpty: '请输入需要生成二维码的内容',
+                qrcodeGenerate: '生成二维码',
+                qrcodeDownload: '下载二维码',
+                invalidJson: '无效的 JSON 格式：',
+                inputJsonLabel: '输入 JSON:',
+                formatResult: '格式化结果:',
+                inputTextLabel: '输入文本内容:',
+                inputPlaceholder: '请输入需要生成二维码的内容',
+                kvToJsonTitle: 'KV to JSON',
+                jsonFormatterTitle: 'JSON Formatter',
+                qrcodeGeneratorTitle: '二维码生成',
+                kvInputLabel: '输入 (键值对):',
+                kvInputPlaceholder: '示例: key1=value1, key2=value2',
+                jsonInputPlaceholder: '请输入需要格式化的 JSON',
+                qrcodeInputPlaceholder: '请输入需要生成二维码的内容',
+                processingError: '处理键值对失败',
+                convertToJson: '转换为 JSON',
+                loadExample: '加载示例',
+                copyJson: '复制 JSON',
+                generate: '生成二维码',
+                download: '下载二维码',
+                qrcodeTitle: '二维码生成工具',
+                qrcodeSubtitle: '简单高效的二维码生成工具',
+                copySuccess: '复制成功',
+                copyError: '复制失败: ',
+                kv2jsonTool: 'KV to JSON',
+                formatJsonTool: 'JSON 格式化',
+                qrcodeTool: '二维码生成',
+                kvInputTip: '支持多种格式的键值对转换',
+                jsonInputTip: '支持 JSON 格式化和美化',
+                qrcodeInputTip: '生成高质量的二维码图片',
+                processing: '处理中...',
+                generating: '生成中...',
+                downloading: '下载中...'
+            },
+            en: {
+                title: 'Key-Value to JSON Converter',
+                inputLabel: 'Input (Key-Value Pairs):',
+                outputLabel: 'Output (JSON):',
+                convertBtn: 'Convert to JSON',
+                exampleBtn: 'Load Example',
+                copyBtn: 'Copy JSON',
+                placeholder: 'Example: key1=value1, key2=value2',
+                emptyInput: 'Please enter some key-value pairs',
+                invalidPair: 'Invalid pair format',
+                emptyKey: 'Key cannot be empty',
+                copySuccess: 'JSON copied to clipboard!',
+                copyError: 'Copy failed: ',
+                error: 'Error: ',
+                keepJsonAsString: 'Keep JSON values as strings',
+                invalidInput: 'Invalid input format',
+                unmatchedBrackets: 'Unmatched brackets',
+                parseError: 'Parse error',
+                clipboardError: 'Clipboard operation failed',
+                formatError: 'Formatting failed',
+                formatJsonTitle: 'JSON Formatter',
+                formatJsonSubtitle: 'Simple and efficient JSON formatting tool',
+                kv2jsonBtn: 'KV to JSON',
+                formatJsonBtn: 'JSON Formatter',
+                formatBtn: 'Format',
+                qrcodeEmpty: 'Please enter content to generate QR code',
+                qrcodeGenerate: 'Generate QR Code',
+                qrcodeDownload: 'Download QR Code',
+                invalidJson: 'Invalid JSON: ',
+                inputJsonLabel: 'Input JSON:',
+                formatResult: 'Formatted Result:',
+                inputTextLabel: 'Input Text:',
+                inputPlaceholder: 'Please enter content to generate QR code',
+                kvToJsonTitle: 'KV to JSON',
+                jsonFormatterTitle: 'JSON Formatter',
+                qrcodeGeneratorTitle: 'QR Code Generator',
+                kvInputLabel: 'Input (Key-Value):',
+                kvInputPlaceholder: 'Example: key1=value1, key2=value2',
+                jsonInputPlaceholder: 'Please input JSON to format',
+                qrcodeInputPlaceholder: 'Please input content to generate QR code',
+                processingError: 'Failed to process key-value pair',
+                convertToJson: 'Convert to JSON',
+                loadExample: 'Load Example',
+                copyJson: 'Copy JSON',
+                generate: 'Generate QR Code',
+                download: 'Download QR Code',
+                qrcodeTitle: 'QR Code Generator',
+                qrcodeSubtitle: 'Simple and efficient QR code generation tool',
+                copySuccess: 'Copied successfully',
+                copyError: 'Copy failed: ',
+                kv2jsonTool: 'KV to JSON',
+                formatJsonTool: 'JSON Formatter',
+                qrcodeTool: 'QR Code',
+                kvInputTip: 'Supports various key-value pair formats',
+                jsonInputTip: 'Format and beautify JSON',
+                qrcodeInputTip: 'Generate high-quality QR codes',
+                processing: 'Processing...',
+                generating: 'Generating...',
+                downloading: 'Downloading...'
+            }
+        };
+
+        let currentLang = 'zh';
+
+        function changeLanguage() {
+            currentLang = document.getElementById('languageSelect').value;
+            updateUIText();
+        }
+
+        function updateUIText() {
+            const texts = i18n[currentLang];
+            document.getElementById('title').textContent = texts.title;
+            document.getElementById('inputLabel').textContent = texts.inputLabel;
+            document.getElementById('outputLabel').textContent = texts.outputLabel;
+            document.getElementById('convertBtn').textContent = texts.convertBtn;
+            document.getElementById('exampleBtn').textContent = texts.exampleBtn;
+            document.getElementById('copyBtn').textContent = texts.copyBtn;
+            document.getElementById('keyValueInput').placeholder = texts.placeholder;
+            document.getElementById('keepJsonAsStringLabel').textContent = texts.keepJsonAsString;
+            document.getElementById('kv2jsonBtn').textContent = texts.kv2jsonBtn;
+            document.getElementById('formatJsonBtn').textContent = texts.formatJsonBtn;
+        }
+
+        function convertToJSON() {
+            const keyValueInput = document.getElementById('keyValueInput').value;
+            const errorElement = document.getElementById('errorMessage');
+            const outputElement = document.getElementById('jsonOutput');
+            
+            try {
+                if (!keyValueInput.trim()) {
+                    throw new Error(i18n[currentLang].emptyInput);
+                }
+                
+                const json = parseKeyValuePairs(keyValueInput);
+                outputElement.textContent = JSON.stringify(json, null, 2);
+                errorElement.style.display = 'none';
+            } catch (e) {
+                errorElement.textContent = i18n[currentLang].error + e.message;
+                errorElement.style.display = 'block';
+                outputElement.textContent = '';
+            }
+            outputElement.classList.add('highlight');
+            setTimeout(() => outputElement.classList.remove('highlight'), 1000);
+        }
+
+        function parseKeyValuePairs(input) {
+            // 添加输入验证
+            if (typeof input !== 'string') {
+                throw new Error(i18n[currentLang].invalidInput);
+            }
+
+            // 检查括号匹配
+            let bracketStack = [];
+            for (let char of input) {
+                if ('{[('.includes(char)) {
+                    bracketStack.push(char);
+                } else if ('}])'.includes(char)) {
+                    const last = bracketStack.pop();
+                    const pairs = { '}': '{', ']': '[', ')': '(' };
+                    if (last !== pairs[char]) {
+                        throw new Error(i18n[currentLang].unmatchedBrackets);
+                    }
+                }
+            }
+            if (bracketStack.length > 0) {
+                throw new Error(i18n[currentLang].unmatchedBrackets);
+            }
+
+            const result = {};
+            let current = '';
+            let key = '';
+            let value = '';
+            let inValue = false;
+            let inQuotes = false;
+            let quoteChar = null;
+            let bracketCount = 0;
+            let braceCount = 0;  // 添加大括号计数
+            
+            // 添加逗号以确保最后一个键值对也能被处理
+            input = input.trim() + ',';
+
+            for (let i = 0; i < input.length; i++) {
+                const char = input[i];
+                
+                // 处理引号
+                if ((char === '"' || char === "'") && input[i - 1] !== '\\') {
+                    if (!inQuotes) {
+                        inQuotes = true;
+                        quoteChar = char;
+                    } else if (quoteChar === char) {
+                        inQuotes = false;
+                        quoteChar = null;
+                    }
+                    current += char;
+                    continue;
+                }
+                
+                // 处理括号
+                if (char === '{') {
+                    braceCount++;
+                    current += char;
+                    continue;
+                }
+                if (char === '}') {
+                    braceCount--;
+                    current += char;
+                    continue;
+                }
+                if (char === '[') {
+                    bracketCount++;
+                    current += char;
+                    continue;
+                }
+                if (char === ']') {
+                    bracketCount--;
+                    current += char;
+                    continue;
+                }
+                
+                // 处理等号（仅处理一个等号）
+                if (char === '=' && !inValue && !inQuotes && bracketCount === 0 && braceCount === 0) {
+                    key = current.trim();
+                    current = '';
+                    inValue = true;
+                    continue;
+                }
+                
+                // 处理分隔符
+                if ((char === ',' || char === '\n') && !inQuotes && bracketCount === 0 && braceCount === 0) {
+                    if (inValue) {
+                        value = current.trim();
+                        if (key) {
+                            try {
+                                result[key] = parseValue(value);
+                            } catch (e) {
+                                throw new Error(`处理键值对失败 "${key}=${value}": ${e.message}`);
+                            }
+                        }
+                        current = '';
+                        key = '';
+                        inValue = false;
+                    }
+                    continue;
+                }
+                
+                current += char;
+            }
+
+            return result;
+        }
+
+        function parseValue(value) {
+            try {
+                // 移除首尾的引号（支持单引号和双引号）
+                value = value.trim();
+                if ((value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith("'") && value.endsWith("'"))) {
+                    value = value.slice(1, -1);
+                }
+
+                const keepJsonAsString = document.getElementById('keepJsonAsString').checked;
+
+                // 处理 JSON 对象或数组
+                if ((value.startsWith('{') && value.endsWith('}')) ||
+                    (value.startsWith('[') && value.endsWith(']'))) {
+                    try {
+                        if (keepJsonAsString) {
+                            // 确保返回格式化的 JSON 字符串
+                            try {
+                                const parsed = JSON.parse(value);
+                                return JSON.stringify(parsed);
+                            } catch {
+                                return value;
+                            }
+                        }
+                        return JSON.parse(value);
+                    } catch (e) {
+                        console.warn('JSON parse failed:', e);
+                        return value;
+                    }
+                }
+
+                // 处理特殊值
+                const lowerValue = value.toLowerCase();
+                if (lowerValue === 'true') return true;
+                if (lowerValue === 'false') return false;
+                if (lowerValue === 'null') return null;
+                if (lowerValue === 'undefined') return undefined;
+
+                // 处理数字（包括科学记数法）
+                if (/^-?\d*\.?\d+(?:e[+-]?\d+)?$/i.test(value)) {
+                    return Number(value);
+                }
+
+                // 处理日期时间格式
+                const dateValue = new Date(value);
+                if (!isNaN(dateValue) && value.includes('-')) {
+                    return value; // 保持原始格式
+                }
+
+                return value;
+            } catch (e) {
+                console.error('Value parsing error:', e);
+                return value;
+            }
+        }
+
+        function loadExample() {
+            const example = `
+string_value=Hello World,
+number_value=42,
+float_value=3.14159,
+scientific_notation=1.23e-4,
+boolean_true=true,
+boolean_false=false,
+null_value=null,
+undefined_value=undefined,
+
+
+date_time=2024-03-14 15:09:26,
+date_only=2024-03-14,
+iso_date=2024-03-14T15:09:26.123Z,
+
+
+simple_array=[1,2,3,4,5],
+string_array=["apple","banana","orange"],
+mixed_array=[1, "two", true, null, {"key": "value"}],
+nested_array=[[1,2],[3,4],[5,6]],
+
+
+simple_object={"name": "John", "age": 30},
+nested_object={"user": {"id": 1, "details": {"city": "New York", "country": "USA"}}},
+
+
+url_value=https://example.com?param=value&other=123,
+encoded_value=%7B%22key%22%3A%22value%22%7D,
+
+
+text_with_comma=This is a text, with commas,
+quoted_value="This is a quoted string with spaces",
+single_quoted='This uses single quotes',
+escaped_quotes="Text with \\"escaped\\" quotes",
+
+
+complex_json={
+    "id": 12345,
+    "name": "Complex Example",
+    "data": {
+        "array": [1, 2, 3],
+        "nested": {
+            "a": "value",
+            "b": [true, false],
+            "c": null
+        }
+    },
+    "tags": ["example", "demo", "test"]
+},
+
+
+api_response={
+    "status": "success",
+    "code": 200,
+    "data": {
+        "user_id": "U123456",
+        "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        "permissions": ["read", "write", "admin"],
+        "settings": {
+            "theme": "dark",
+            "notifications": true,
+            "language": "zh-CN"
+        }
+    },
+    "timestamp": "2024-03-14T15:09:26.123Z"
+}`;
+            document.getElementById('keyValueInput').value = example;
+        }
+
+        function copyToClipboard() {
+            const jsonOutput = document.getElementById('jsonOutput');
+            if (!jsonOutput.textContent) {
+                return;
+            }
+            
+            try {
+                // 添加复制成功的视觉反馈
+                navigator.clipboard.writeText(jsonOutput.textContent)
+                    .then(() => {
+                        const copyBtn = document.getElementById('copyBtn');
+                        const originalText = copyBtn.textContent;
+                        copyBtn.textContent = i18n[currentLang].copySuccess;
+                        copyBtn.style.backgroundColor = '#16a34a';
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                            copyBtn.style.backgroundColor = '';
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Copy failed:', err);
+                        alert(i18n[currentLang].copyError + err);
+                    });
+            } catch (e) {
+                console.error('Clipboard API not available:', e);
+                // 降级处理：使用传统方法
+                const textarea = document.createElement('textarea');
+                textarea.value = jsonOutput.textContent;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert(i18n[currentLang].copySuccess);
+                } catch (e) {
+                    alert(i18n[currentLang].copyError + e);
+                }
+                document.body.removeChild(textarea);
+            }
+            const copyBtn = document.getElementById('copyBtn');
+            copyBtn.style.transform = 'scale(0.95)';
+            setTimeout(() => copyBtn.style.transform = '', 200);
+        }
+
+        // 添加防抖理
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 优化转换函数
+        const debouncedConvert = debounce(convertToJSON, 300);
+
+        // 页面加载时初始化语言
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUIText();
+        });
+
+        function switchTool(tool) {
+            // 获取所有工具内容和按钮
+            const contents = document.querySelectorAll('.tool-content');
+            const buttons = document.querySelectorAll('.tool-btn');
+            
+            // 隐藏所有内容并移除按钮活动���态
+            contents.forEach(content => {
+                content.classList.remove('active');
+            });
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 显示选中的工具内容并激活对应按钮
+            let title, subtitle;
+            switch(tool) {
+                case 'kv2json':
+                    document.getElementById('kv2jsonContent').classList.add('active');
+                    document.getElementById('kv2jsonBtn').classList.add('active');
+                    title = i18n[currentLang].title;
+                    subtitle = i18n[currentLang].subtitle;
+                    break;
+                case 'formatJson':
+                    document.getElementById('formatJsonContent').classList.add('active');
+                    document.getElementById('formatJsonBtn').classList.add('active');
+                    title = i18n[currentLang].formatJsonTitle;
+                    subtitle = i18n[currentLang].formatJsonSubtitle;
+                    break;
+                case 'qrcode':
+                    document.getElementById('qrcodeContent').classList.add('active');
+                    document.getElementById('qrcodeBtn').classList.add('active');
+                    title = i18n[currentLang].qrcodeTitle;
+                    subtitle = i18n[currentLang].qrcodeSubtitle;
+                    break;
+            }
+
+            // 更新标题和副标题
+            document.getElementById('title').textContent = title;
+            document.getElementById('subtitle').textContent = subtitle;
+
+            // 添加切换动画
+            const activeContent = document.querySelector('.tool-content.active');
+            activeContent.style.animation = 'fadeIn 0.3s ease-out';
+            setTimeout(() => {
+                activeContent.style.animation = '';
+            }, 300);
+        }
+
+        function formatJSON() {
+            const jsonInput = document.getElementById('jsonInput').value;
+            const outputElement = document.getElementById('formatOutput');
+            
+            try {
+                const parsed = JSON.parse(jsonInput);
+                outputElement.textContent = JSON.stringify(parsed, null, 2);
+                outputElement.classList.add('highlight');
+                setTimeout(() => outputElement.classList.remove('highlight'), 1000);
+            } catch (e) {
+                alert(i18n[currentLang].invalidJson + e.message);
+            }
+        }
+
+        function generateQRCode() {
+            const text = document.getElementById('qrcodeInput').value;
+            if (!text) {
+                alert(i18n[currentLang].qrcodeEmpty);
+                return;
+            }
+
+            const canvas = document.getElementById('qrcodeCanvas');
+            const preview = canvas.closest('.qrcode-preview');
+            
+            // 添加加载状态
+            preview.classList.add('loading');
+            preview.classList.remove('loaded');
+            
+            // 清除旧的二维码
+            while (canvas.firstChild) {
+                canvas.removeChild(canvas.firstChild);
+            }
+
+            // 延迟生成以显示加载动画
+            setTimeout(() => {
+                new QRCode(canvas, {
+                    text: text,
+                    width: 300,
+                    height: 300,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                // 获取生成的图片并添加加载完成事件
+                const img = canvas.querySelector('img');
+                if (img) {
+                    img.onload = () => {
+                        preview.classList.remove('loading');
+                        setTimeout(() => {
+                            preview.classList.add('loaded');
+                        }, 100);
+                    };
+                }
+                
+                document.getElementById('downloadQRBtn').disabled = false;
+            }, 600);
+        }
+
+        function downloadQRCode() {
+            const canvas = document.getElementById('qrcodeCanvas');
+            if (!canvas) return;
+            const img = canvas.getElementsByTagName('img')[0];
+            if (!img) return;
+            
+            const link = document.createElement('a');
+            link.download = 'qrcode.png';
+            link.href = img.src;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 更新主题切换函数
+        function toggleTheme() {
+            const root = document.documentElement;
+            const isDark = root.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            
+            // 添加过渡动画类
+            document.body.classList.add('theme-transitioning');
+            
+            // 设置主题
+            root.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // 移除过渡动画类
+            setTimeout(() => {
+                document.body.classList.remove('theme-transitioning');
+            }, 300);
+        }
+
+        // 页面加载时初始化主���
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        });
+    </script>
+</body>
+</html>
